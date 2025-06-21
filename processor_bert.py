@@ -4,7 +4,6 @@ from sentence_transformers import SentenceTransformer
 model_embedding = SentenceTransformer('all-MiniLM-L6-v2')  # Lightweight embedding model
 model_classification = joblib.load("models/log_classifier.joblib")
 
-
 def classify_with_bert(log_message):
     embeddings = model_embedding.encode([log_message])
     probabilities = model_classification.predict_proba(embeddings)[0]
