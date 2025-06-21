@@ -1,10 +1,20 @@
 import pandas as pd
 from fastapi import FastAPI, UploadFile, HTTPException
 from fastapi.responses import FileResponse
+import uvicorn
+from fastapi import Response
 
 from classify import classify
 
 app = FastAPI()
+
+@app.head("/", include_in_schema=False)
+async def head_root():
+    return Response(status_code=200)
+
+@app.get("/", include_in_schema=False)
+async def health_check():
+    return {"status": "ok", "service": "Resume Checker API"}
 
 @app.post("/classify/")
 async def classify_logs(file: UploadFile):
@@ -23,7 +33,7 @@ async def classify_logs(file: UploadFile):
         print("Dataframe:",df.to_dict())
 
         # Save the modified file
-        output_file = "resources/output.csv"
+        output_file = "output.csv"
         df.to_csv(output_file, index=False)
         print("File saved to output.csv")
         return FileResponse(output_file, media_type='text/csv')
@@ -34,3 +44,8 @@ async def classify_logs(file: UploadFile):
         # # Clean up if the file was saved
         # if os.path.exists("output.csv"):
         #     os.remove("output.csv")
+        
+if __name__ == "__main__":
+    import os
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("app:app", host="0.0.0.0", port=port)
