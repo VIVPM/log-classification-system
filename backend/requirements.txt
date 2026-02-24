@@ -1,0 +1,9 @@
+fastapi==0.116.0
+uvicorn==0.35.0
+python-multipart==0.0.20
+pandas==2.3.1
+scikit-learn==1.7.0
+joblib==1.5.1
+google-genai==1.64.0
+python-dotenv==1.1.1
+huggingface-hub
