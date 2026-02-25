@@ -99,9 +99,9 @@ def run_training_pipeline(csv_path: str, model_save_path: str):
             
         try:
             result = client.models.embed_content(
-                model="text-embedding-004",
+                model="models/gemini-embedding-001",
                 contents=text,
-                config=types.EmbedContentConfig(task_type="CLASSIFICATION")
+                config=types.EmbedContentConfig(task_type="CLASSIFICATION", output_dimensionality=768)
             )
             embeddings.append(result.embeddings[0].values)
         except Exception as e:
@@ -111,9 +111,9 @@ def run_training_pipeline(csv_path: str, model_save_path: str):
                 time.sleep(15)
                 # Retry once
                 result = client.models.embed_content(
-                    model="text-embedding-004",
+                    model="models/gemini-embedding-001",
                     contents=text,
-                    config=types.EmbedContentConfig(task_type="CLASSIFICATION")
+                    config=types.EmbedContentConfig(task_type="CLASSIFICATION", output_dimensionality=768)
                 )
                 embeddings.append(result.embeddings[0].values)
             else:

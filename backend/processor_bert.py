@@ -60,9 +60,9 @@ def classify_with_bert(log_message):
             
         # Get embeddings from Google
         result = client.models.embed_content(
-            model="gemini-embedding-001", # Supported Google embedding model
+            model="models/gemini-embedding-001", # Supported Google embedding model
             contents=log_message,
-            config=types.EmbedContentConfig(task_type="CLASSIFICATION")
+            config=types.EmbedContentConfig(task_type="CLASSIFICATION", output_dimensionality=768)
         )
         embeddings = [result.embeddings[0].values]
         
