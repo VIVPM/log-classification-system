@@ -15,7 +15,8 @@ except ImportError:
     HF_AVAILABLE = False
 
 from dotenv import load_dotenv
-load_dotenv(dotenv_path=".env")
+dotenv_path = os.path.join(os.path.dirname(__file__), ".env")
+load_dotenv(dotenv_path=dotenv_path)
 HF_TOKEN = os.environ.get("HF_TOKEN", "")
 HF_REPO_ID = os.environ.get("HF_REPO_ID", "")
 
