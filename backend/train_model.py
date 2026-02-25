@@ -5,6 +5,7 @@ from sklearn.linear_model import LogisticRegression
 from google import genai
 from google.genai import types
 from processor_regex import classify_with_regex
+from processor_bert import get_embedding
 
 # HF Hub Loading capabilities
 try:
@@ -97,27 +98,18 @@ def run_training_pipeline(csv_path: str, model_save_path: str):
         if i % 100 == 0:
             print(f"  Processed {i}/{len(X_texts)} embeddings...")
             
-        try:
-            result = client.models.embed_content(
-                model="models/gemini-embedding-001",
-                contents=text,
-                config=types.EmbedContentConfig(task_type="CLASSIFICATION", output_dimensionality=768)
-            )
-            embeddings.append(result.embeddings[0].values)
-        except Exception as e:
-            # Simple retry logic for rate limits
-            if '429' in str(e):
-                print("  Rate limit hit. Sleeping for 15 seconds...")
-                time.sleep(15)
-                # Retry once
-                result = client.models.embed_content(
-                    model="models/gemini-embedding-001",
-                    contents=text,
-                    config=types.EmbedContentConfig(task_type="CLASSIFICATION", output_dimensionality=768)
-                )
-                embeddings.append(result.embeddings[0].values)
-            else:
-                raise e
+        emb = get_embedding(text)
+        if emb:
+             embeddings.append(emb[0])
+        else:
+             # Retry logic handled inside get_embedding, but if it completely fails, 
+             # wait longer and try one absolute last time before crashing
+             time.sleep(15)
+             emb = get_embedding(text)
+             if emb:
+                  embeddings.append(emb[0])
+             else:
+                  raise ValueError(f"Failed to generate embedding for text: {text[:50]}...")
 
     print("Embeddings generated successfully.")
 

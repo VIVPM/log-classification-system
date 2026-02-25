@@ -53,18 +53,31 @@ def load_or_pull_model():
 
 load_or_pull_model()
 
+def get_embedding(log_message):
+    """
+    Generate Google Embeddings for a given text.
+    Shared function used by both training and classification.
+    """
+    try:
+        result = client.models.embed_content(
+            model="models/gemini-embedding-001",
+            contents=log_message,
+            config=types.EmbedContentConfig(task_type="CLASSIFICATION", output_dimensionality=768)
+        )
+        return [result.embeddings[0].values]
+    except Exception as e:
+        print(f"Google Embedding Error: {e}")
+        return None
+
 def classify_with_bert(log_message):
     try:
         if model_classification is None:
             return "Unclassified"
             
         # Get embeddings from Google
-        result = client.models.embed_content(
-            model="models/gemini-embedding-001", # Supported Google embedding model
-            contents=log_message,
-            config=types.EmbedContentConfig(task_type="CLASSIFICATION", output_dimensionality=768)
-        )
-        embeddings = [result.embeddings[0].values]
+        embeddings = get_embedding(log_message)
+        if embeddings is None:
+             return "Unclassified"
         
         probabilities = model_classification.predict_proba(embeddings)[0]
         if max(probabilities) < 0.5:
