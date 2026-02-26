@@ -1,16 +1,13 @@
 import streamlit as st
 import requests
 import pandas as pd
-import os
-
 # ---------------------------------------------------------------------------
-# Config — backend URL
+# Config — API URL from .streamlit/secrets.toml
 # ---------------------------------------------------------------------------
-API_URL = os.environ.get("API_URL", "http://localhost:8000").rstrip("/")
-try:
-    API_URL = st.secrets["api"]["API_URL"].rstrip("/")
-except (FileNotFoundError, KeyError):
-    pass
+if "API_URL" in st.secrets:
+    API_URL = st.secrets["API_URL"].rstrip("/")
+else:
+    API_URL = "http://localhost:8000"
 
 # ---------------------------------------------------------------------------
 # Page config
