@@ -14,7 +14,7 @@ import importlib
 
 # HF Hub Loading capabilities
 try:
-    from huggingface_hub import hf_hub_download
+    from huggingface_hub import HfApi, hf_hub_download
     HF_AVAILABLE = True
 except ImportError:
     HF_AVAILABLE = False
@@ -27,38 +27,59 @@ HF_REPO_ID = os.environ.get("HF_REPO_ID", "vivpm99/log-classification-model")
 def _hf_enabled() -> bool:
     return HF_AVAILABLE and bool(HF_TOKEN) and HF_TOKEN != "your_hf_token_here"
 
-def pull_model_from_hf():
-    """Download best model from HF Hub if available."""
+def _load_model_artifacts(version: str = "main", download: bool = True):
+    """Download model artifacts from HuggingFace Hub (strict mode)."""
     if not _hf_enabled():
-        print("ℹ️ HF Hub not configured or unavailable — skipping pull.")
         return False
         
-    try:
-        model_dir = os.path.join(os.path.dirname(__file__), "models")
-        os.makedirs(model_dir, exist_ok=True)
+    model_dir = os.path.join(os.path.dirname(__file__), "models")
+    os.makedirs(model_dir, exist_ok=True)
+    
+    if download:
+        try:
+            api = HfApi(token=HF_TOKEN)
+            api.repo_info(repo_id=HF_REPO_ID)
+        except Exception as e:
+            if "404" in str(e):
+                raise ValueError(f"HuggingFace repo '{HF_REPO_ID}' does not exist yet. Please train a model first.")
+            raise
+            
+        print(f"🔄 Pulling model artifacts from HuggingFace Hub ({HF_REPO_ID} @ {version})...")
         
-        print(f"🔄 Pulling model from HuggingFace Hub ({HF_REPO_ID})...")
-        hf_hub_download(
-            repo_id=HF_REPO_ID,
-            filename="log_classifier.joblib",
-            token=HF_TOKEN,
-            local_dir=model_dir,
-            local_dir_use_symlinks=False
-        )
-        print("✅ Successfully pulled model from HuggingFace.")
-        return True
-    except Exception as e:
-        error_msg = str(e)
-        if "404 Client Error" in error_msg or "EntryNotFoundError" in error_msg or "RepositoryNotFoundError" in error_msg:
-            print(f"ℹ️ Model not found on HF Hub ({HF_REPO_ID}). It means you need to train your model first.")
-        else:
-            print(f"⚠️ Failed to pull model from HF Hub: {e}")
-        return False
+        files_to_download = ["log_classifier.joblib", "model_comparison.csv"]
+        for fname in files_to_download:
+            try:
+                hf_hub_download(
+                    repo_id=HF_REPO_ID,
+                    filename=fname,
+                    revision=version,
+                    token=HF_TOKEN,
+                    local_dir=model_dir,
+                    local_dir_use_symlinks=False
+                )
+                print(f"✅ Successfully downloaded {fname} (v: {version}).")
+            except Exception as e:
+                if "model_comparison.csv" in fname and "404" in str(e):
+                    print("ℹ️ No model_comparison.csv found, skipping.")
+                    continue
+                error_msg = str(e)
+                if "404 Client Error" in error_msg or "EntryNotFoundError" in error_msg:
+                    raise ValueError(f"Model file {fname} not found on HF Hub for version {version}. Train model first.")
+                
+                raise ValueError(f"Failed to pull {fname} from HF Hub: {e}")
+    else:
+        print("ℹ️  Download skipped by request — loading from local files directly.")
+        
+    return True
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # On startup: pull model from Hub if we have a token
-    pulled = pull_model_from_hf()
+    pulled = False
+    try:
+        pulled = _load_model_artifacts(version="main")
+    except Exception as e:
+        print(f"⚠️ Startup model load failed: {e}")
     
     # Reload local predict scripts in case the file just changed under them
     if pulled:
@@ -125,9 +146,47 @@ training_lock = threading.Lock()
 def health_check():
     return {"status": "healthy", "service": "Log Classification Backend API"}
 
+@app.get("/model/versions")
+def get_model_versions():
+    """Get available model versions from Hugging Face Hub."""
+    if not _hf_enabled():
+        return {"versions": ["local"]}
+        
+    try:
+        api = HfApi(token=HF_TOKEN)
+        try:
+            api.repo_info(repo_id=HF_REPO_ID)
+        except Exception as e:
+            if "404" in str(e):
+                return {"versions": []}
+            raise
+            
+        tags = api.list_repo_refs(repo_id=HF_REPO_ID).tags
+        versions = [t.name for t in tags if t.name.startswith("v")]
+        sorted_versions = sorted(versions, key=lambda v: tuple(map(int, v.removeprefix('v').split('.'))))
+        if not sorted_versions:
+            return {"versions": ["main"]}
+        return {"versions": sorted_versions}
+    except Exception as e:
+        print(f"⚠️ Failed to fetch versions from HF Hub: {e}")
+        return {"versions": []}
+
 @app.get("/model/info")
 def get_model_info():
     """Get information about the current model."""
+    metrics_path = os.path.join(os.path.dirname(__file__), "models", "model_comparison.csv")
+    if os.path.exists(metrics_path):
+        import pandas as pd
+        df = pd.read_csv(metrics_path)
+        record = df.iloc[0].to_dict()
+        return {
+            "model_name": record.get("model_name", "Logistic Regression"),
+            "num_features": record.get("num_features", 768),
+            "best_cv_score": record.get("best_score", None),
+            "training_time": record.get("training_time", None)
+        }
+        
+    # Fallback if no csv exists locally
     try:
         from processor_bert import model_classification
         num_features = getattr(model_classification, "n_features_in_", "Unknown")
@@ -140,7 +199,12 @@ def get_model_info():
     }
 
 @app.post("/predict")
-def predict_single(request: SingleLogRequest):
+def predict_single(request: SingleLogRequest, version: str = "main"):
+    try:
+        _load_model_artifacts(version=version)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+        
     try:
         label = classify.classify_log(request.source, request.log_message)
         return {
@@ -152,10 +216,15 @@ def predict_single(request: SingleLogRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/predict/batch")
-async def predict_batch(file: UploadFile = File(...)):
+async def predict_batch(file: UploadFile = File(...), version: str = "main"):
     if not file.filename.endswith('.csv'):
         raise HTTPException(status_code=400, detail="File must be a CSV format")
     
+    try:
+        _load_model_artifacts(version=version)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+        
     try:
         contents = await file.read()
         df = pd.read_csv(io.BytesIO(contents))
@@ -195,6 +264,12 @@ def _run_training_pipeline_background(data_path: str):
         # Run the training pipeline!
         result = run_training_pipeline(data_path, target_model_path)
         
+        # Load local model without downloading
+        try:
+            _load_model_artifacts(download=False)
+        except Exception:
+            pass
+        
         # Critical: Force a reload of the joblib model inside the processor
         # so subsequent predictions use the *new* model.
         import processor_bert
@@ -205,7 +280,7 @@ def _run_training_pipeline_background(data_path: str):
             # Update status on success
             training_status["status"] = "completed"
             training_status["completed_at"] = datetime.now().isoformat()
-            training_status["message"] = "Training completed! Model reloaded successfully."
+            training_status["message"] = "Training completed! Model uploaded to HF Hub."
             training_status["accuracy"] = result["accuracy"]
             training_status["num_trained_logs"] = result["num_trained_logs"]
             training_status["num_features"] = result.get("num_features", None)

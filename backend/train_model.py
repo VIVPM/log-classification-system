@@ -23,8 +23,8 @@ HF_REPO_ID = os.environ.get("HF_REPO_ID", "")
 def _hf_enabled() -> bool:
     return HF_AVAILABLE and bool(HF_TOKEN) and HF_TOKEN != "your_hf_token_here"
 
-def upload_to_hf(model_path: str):
-    """Upload model artifacts to HuggingFace Hub."""
+def upload_to_hf(model_dir: str, accuracy: float):
+    """Upload model artifacts to HuggingFace Hub and tag with a new version."""
     if not _hf_enabled():
         print("⚠️ HF Hub not configured — skipping upload.")
         return False
@@ -32,16 +32,38 @@ def upload_to_hf(model_path: str):
         api = HfApi(token=HF_TOKEN)
         api.create_repo(repo_id=HF_REPO_ID, exist_ok=True, private=False)
         
-        filename = os.path.basename(model_path)
-        if os.path.exists(model_path):
-            api.upload_file(
-                path_or_fileobj=model_path,
-                path_in_repo=filename,
-                repo_id=HF_REPO_ID,
-                token=HF_TOKEN,
-            )
-            print(f"☁️ Uploaded {filename} → {HF_REPO_ID}")
-            return True
+        # Determine next version
+        tags = api.list_repo_refs(repo_id=HF_REPO_ID).tags
+        versions = [t.name for t in tags if t.name.startswith("v")]
+        if versions:
+            latest = sorted(versions)[-1]
+            try:
+                major, minor = latest.removeprefix("v").split(".")
+                new_version = f"v{major}.{int(minor) + 1}"
+            except ValueError:
+                new_version = f"v1.{len(versions)}"
+        else:
+            new_version = "v1.0"
+        
+        # Upload all files in the model directory
+        api.upload_folder(
+            folder_path=str(model_dir),
+            repo_id=HF_REPO_ID,
+            commit_message=f"Automated Training - {new_version}",
+            token=HF_TOKEN,
+            allow_patterns=["*.joblib", "*.json", "*.csv", "*.txt"]
+        )
+        print(f"☁️ Uploaded artifacts -> {HF_REPO_ID}")
+        
+        # Tag the release
+        api.create_tag(
+            repo_id=HF_REPO_ID,
+            tag=new_version,
+            tag_message=f"Automated Model Training. Accuracy: {accuracy:.4f}",
+            token=HF_TOKEN
+        )
+        print(f"🏷️ Created new tag: {new_version}")
+        return True
     except Exception as e:
         print(f"❌ HF upload failed: {e}")
         return False
@@ -124,17 +146,29 @@ def run_training_pipeline(csv_path: str, model_save_path: str):
 
     # 5. Save the trained model
     print(f"Saving model to {model_save_path}...")
-    # Ensure directory exists
-    os.makedirs(os.path.dirname(model_save_path), exist_ok=True)
+    model_dir = os.path.dirname(model_save_path)
+    os.makedirs(model_dir, exist_ok=True)
     joblib.dump(clf, model_save_path)
+    
+    # 5.5 Save model_comparison.csv
+    features = clf.n_features_in_ if hasattr(clf, 'n_features_in_') else 768
+    metrics_df = pd.DataFrame([{
+        "model_name": "Logistic Regression + BERT/Regex/LLM",
+        "best_score": accuracy,
+        "num_features": features,
+        "training_time": pd.Timestamp.now().isoformat()
+    }])
+    metrics_path = os.path.join(model_dir, "model_comparison.csv")
+    metrics_df.to_csv(metrics_path, index=False)
+    print(f"Metrics saved to {metrics_path}")
     
     # 6. Upload to HF Hub
     print("Uploading model to HuggingFace Hub...")
-    upload_to_hf(model_path=model_save_path)
+    upload_to_hf(model_dir=model_dir, accuracy=accuracy)
     
     return {
         "status": "success",
         "accuracy": accuracy,
         "num_trained_logs": len(df_non_legacy),
-        "num_features": clf.n_features_in_ if hasattr(clf, 'n_features_in_') else 768
+        "num_features": features
     }

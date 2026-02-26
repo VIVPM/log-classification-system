@@ -84,6 +84,15 @@ def check_api():
     except (requests.ConnectionError, requests.Timeout):
         return False, {}
 
+def get_model_versions():
+    try:
+        r = requests.get(f"{API_URL}/model/versions", timeout=10)
+        if r.status_code == 200:
+            return r.json().get("versions", [])
+    except Exception:
+        pass
+    return []
+
 def get_model_info():
     try:
         r = requests.get(f"{API_URL}/model/info", timeout=10)
@@ -104,13 +113,29 @@ with st.sidebar:
 
     if api_ok:
         st.success("✅ API Connected")
+        
+        # Version Selection
+        versions = get_model_versions()
+        
+        if not versions:
+            st.warning("⚠️ No model versions found on HF Hub. Train a model first.")
+            st.session_state["selected_version"] = "main"
+        else:
+            selected_version = st.selectbox(
+                "📂 Select Model Version",
+                options=reversed(versions),
+                index=0
+            )
+            st.session_state["selected_version"] = selected_version
+
         info = get_model_info()
         if info:
-            st.markdown(f"**Model:** `{info['model_name']}`")
-            st.markdown(f"**Features:** `{info['num_features']}`")
-        else:
-            st.warning("⚠️ Base model loaded. Run training for metrics.")
+            st.markdown(f"**Model:** `{info.get('model_name', 'Loaded')}`")
+            st.markdown(f"**Features:** `{info.get('num_features', 'Unknown')}`")
+            if 'best_cv_score' in info and info['best_cv_score']:
+                st.markdown(f"**Score:** `{info['best_cv_score']:.4f}`")
     else:
+        versions = []
         st.error("❌ API Offline")
         st.code("cd backend && uvicorn api:app --reload", language="bash")
 
@@ -303,6 +328,10 @@ with tab2:
         predict_btn = st.button("🔮 Classify Log", use_container_width=True, type="primary")
 
         if predict_btn:
+            if not versions:
+                st.warning("⚠️ **Training Required:** No models are available on Hugging Face Hub. Please go to the **Train Model** tab to train and register your first model!")
+                st.stop()
+                
             if not log_message.strip():
                 st.error("Please enter a log message.")
             else:
@@ -312,7 +341,8 @@ with tab2:
                 }
 
                 with st.spinner("Classifying via backend..."):
-                    resp = requests.post(f"{API_URL}/predict", json=payload)
+                    version = st.session_state.get("selected_version", "main")
+                    resp = requests.post(f"{API_URL}/predict?version={version}", json=payload)
 
                 if resp.status_code == 200:
                     result = resp.json()
@@ -341,17 +371,22 @@ with tab3:
 
         uploaded_file = st.file_uploader("Choose a CSV file", type="csv")
 
-        if uploaded_file is not None:
+        if uploaded_file is not None and api_ok:
             df_preview = pd.read_csv(uploaded_file)
             st.markdown(f"**Loaded {len(df_preview)} logs**")
             st.dataframe(df_preview.head(), use_container_width=True)
 
             if st.button("🔮 Classify All Logs", use_container_width=True, type="primary", key="batch_predict"):
+                if not versions:
+                    st.warning("⚠️ **Training Required:** No models are available on Hugging Face Hub. Please go to the **Train Model** tab to train and register your first model!")
+                    st.stop()
+                    
                 uploaded_file.seek(0)
 
                 with st.spinner(f"Classifying {len(df_preview)} logs... This might take a moment."):
+                    version = st.session_state.get("selected_version", "main")
                     resp = requests.post(
-                        f"{API_URL}/predict/batch",
+                        f"{API_URL}/predict/batch?version={version}",
                         files={"file": (uploaded_file.name, uploaded_file.getvalue(), "text/csv")},
                     )
 
