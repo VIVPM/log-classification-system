@@ -153,7 +153,7 @@ def run_training_pipeline(csv_path: str, model_save_path: str):
     # 5.5 Save model_comparison.csv
     features = clf.n_features_in_ if hasattr(clf, 'n_features_in_') else 768
     metrics_df = pd.DataFrame([{
-        "model_name": "Logistic Regression + BERT/Regex/LLM",
+        "model_name": "Logistic Regression",
         "best_score": accuracy,
         "num_features": features,
         "training_time": pd.Timestamp.now().isoformat()

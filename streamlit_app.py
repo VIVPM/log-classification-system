@@ -213,11 +213,8 @@ with tab1:
                 st.error(f"❌ Failed to start training: {resp.text}")
 
         # ── Training Status Panel ──────────────────────────────────────────
-        if not st.session_state.get("training_triggered", False):
-            st.info("📂 Upload your CSV file and click **Start Training** to begin.")
-        else:
-            st.markdown("---")
-            st.markdown("#### 📊 Training Status")
+        st.markdown("---")
+        st.markdown("#### 📊 Training Status")
 
         status_placeholder = st.empty()
         steps_placeholder = st.empty()
@@ -225,8 +222,9 @@ with tab1:
         refresh_placeholder = st.empty()
 
         def render_status():
-            if not st.session_state.get("training_triggered", False):
-                return None
+            # Check if there's an active training session
+            training_triggered = st.session_state.get("training_triggered", False)
+            
             try:
                 r = requests.get(f"{API_URL}/train/status", timeout=10)
                 if r.status_code != 200:
@@ -238,8 +236,42 @@ with tab1:
             status = s.get("status", "idle")
             message = s.get("message", "")
 
-            if status == "idle":
+            # If idle and no training triggered, check if we have a loaded model from HF
+            if status == "idle" and not training_triggered:
+                selected_version = st.session_state.get("selected_version")
+                if selected_version and selected_version != "main":
+                    # Show loaded model info
+                    info = get_model_info()
+                    if info:
+                        status_placeholder.markdown(
+                            f'<div class="status-completed">✅ <strong>Model Loaded from HF Hub</strong><br>Version: {selected_version}</div>',
+                            unsafe_allow_html=True
+                        )
+                        steps_placeholder.markdown("""
+                        | Step | Task | Status |
+                        |------|------|--------|
+                        | 1 | Regex Preprocessing | ✅ |
+                        | 2 | Model Embeddings Generator | ✅ |
+                        | 3 | Logistic Regression Training | ✅ |
+                        """)
+                        m1, m2, m3 = metrics_placeholder.columns(3)
+                        model_name = info.get("model_name", "")
+                        # Extract only the ML model name (remove BERT/LLM part)
+                        if " + " in model_name:
+                            model_name = model_name.split(" + ")[0]
+                        m1.metric("📊 Model", model_name)
+                        acc = info.get("best_cv_score")
+                        m2.metric("📈 CV Score", f"{acc:.4f}" if acc else "-")
+                        m3.metric("🔢 Features", info.get("num_features", "-"))
+                        return "loaded"
+                
+                # No model loaded, show info message
+                status_placeholder.info("📂 Upload your CSV file and click **Start Training** to begin.")
+                return "idle"
+
+            elif status == "idle":
                 status_placeholder.info("💤 No training has been run yet. Upload data and click **Start Training**.")
+                return "idle"
 
             elif status == "running":
                 status_placeholder.markdown(
