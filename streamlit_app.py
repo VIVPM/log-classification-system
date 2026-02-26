@@ -76,7 +76,7 @@ def get_label_html(label):
 # ---------------------------------------------------------------------------
 def check_api():
     try:
-        r = requests.get(f"{API_URL}/", timeout=15)
+        r = requests.get(f"{API_URL}/", timeout=60)  # 60s to survive Render cold start
         return r.status_code == 200, r.json()
     except (requests.ConnectionError, requests.Timeout):
         return False, {}
@@ -133,8 +133,15 @@ with st.sidebar:
                 st.markdown(f"**Score:** `{info['best_cv_score']:.4f}`")
     else:
         versions = []
-        st.error("❌ API Offline")
-        st.code("cd backend && uvicorn api:app --reload", language="bash")
+        is_local = "localhost" in API_URL
+        if is_local:
+            st.error("❌ API Offline")
+            st.code("cd backend && uvicorn api:app --reload", language="bash")
+        else:
+            st.warning("⏳ Backend is waking up (Render cold start ~30s)")
+            st.caption("Click **Retry** after a few seconds.")
+            if st.button("🔄 Retry", use_container_width=True):
+                st.rerun()
 
     st.markdown("---")
     st.markdown("### How to use")
