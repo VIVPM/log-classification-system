@@ -148,7 +148,7 @@ with st.sidebar:
 # Header
 # ---------------------------------------------------------------------------
 st.title("📜 AI Log Classification System")
-st.caption("Classify system logs automatically using Regex, Google Embeddings, and Groq LLM")
+st.caption("Classify system logs automatically using Regex, Google Embeddings, and Gemini LLM")
 st.markdown("---")
 
 # ---------------------------------------------------------------------------
