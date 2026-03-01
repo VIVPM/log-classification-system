@@ -1,6 +1,6 @@
 # Log Classification with Hybrid Framework
 
-Classifies system logs using three complementary approaches: regex for simple patterns, Gemini embeddings + Logistic Regression for complex patterns with training data, and Gemini LLM for sources without enough labeled data (LegacyCRM).
+Hybrid log classifier using three approaches based on source type: Regex for simple predictable patterns, Gemini Embeddings + Logistic Regression for complex patterns with labeled training data, and Gemini LLM for sources with insufficient labeled data (LegacyCRM). FastAPI backend processes CSV uploads and returns predicted labels. Streamlit UI for interactive classification.
 
 ## Architecture
 
@@ -150,7 +150,6 @@ uvicorn api:app --reload --port 8000
 streamlit run streamlit_app.py
 ```
 
-- API docs: http://localhost:8000/docs
 - UI: http://localhost:8501
 
 ## Usage
