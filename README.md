@@ -50,7 +50,7 @@ graph LR
 | Security Alert | 1.00 | 1.00 | 1.00 | 123 |
 | **Accuracy** | | | **1.00** | **571** |
 
-- **Test Accuracy: 99.82%** (test size: 30%, random_state=42)
+- **Test Accuracy: 99.82%** (test size: 20%, random_state=42, stratified)
 - Embedding model: `gemini-embedding-001` (768 dimensions, task_type=CLASSIFICATION)
 - Predictions with max probability < 0.5 fallback to "Unclassified"
 
@@ -129,6 +129,8 @@ streamlit run streamlit_app.py
 ```
 
 - UI: http://localhost:8501
+
+> **Note**: The Streamlit UI implements robust session state locking (`is_training`, `is_predicting`, `is_batching`). Initiating any active task will safely disable the other buttons to prevent race conditions or API overload.
 
 ## Usage
 
