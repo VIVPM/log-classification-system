@@ -19,6 +19,13 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+if "is_training" not in st.session_state:
+    st.session_state["is_training"] = False
+if "is_predicting" not in st.session_state:
+    st.session_state["is_predicting"] = False
+if "is_batching" not in st.session_state:
+    st.session_state["is_batching"] = False
+
 # ---------------------------------------------------------------------------
 # CSS
 # ---------------------------------------------------------------------------
@@ -197,16 +204,20 @@ with tab1:
                 "🚀 Start Training",
                 use_container_width=True,
                 type="primary",
-                disabled=(uploaded_train_file is None),
+                disabled=(uploaded_train_file is None) or st.session_state["is_predicting"] or st.session_state["is_batching"],
             )
 
         if train_btn and uploaded_train_file is not None:
+            st.session_state["is_training"] = True
             with st.spinner("Uploading data and starting training..."):
-                resp = requests.post(
-                    f"{API_URL}/train",
-                    files={"file": (uploaded_train_file.name, uploaded_train_file.getvalue(), "text/csv")},
-                    timeout=30,
-                )
+                try:
+                    resp = requests.post(
+                        f"{API_URL}/train",
+                        files={"file": (uploaded_train_file.name, uploaded_train_file.getvalue(), "text/csv")},
+                        timeout=30,
+                    )
+                finally:
+                    st.session_state["is_training"] = False
             if resp.status_code == 200:
                 st.success("✅ Training started! Monitor progress below.")
                 st.session_state["training_triggered"] = True
@@ -361,7 +372,7 @@ with tab2:
             )
 
         st.markdown("")
-        predict_btn = st.button("🔮 Classify Log", use_container_width=True, type="primary")
+        predict_btn = st.button("🔮 Classify Log", use_container_width=True, type="primary", disabled=st.session_state["is_training"] or st.session_state["is_batching"])
 
         if predict_btn:
             if not versions:
@@ -376,9 +387,13 @@ with tab2:
                     "log_message": log_message
                 }
 
+                st.session_state["is_predicting"] = True
                 with st.spinner("Classifying via backend..."):
-                    version = st.session_state.get("selected_version", "main")
-                    resp = requests.post(f"{API_URL}/predict?version={version}", json=payload)
+                    try:
+                        version = st.session_state.get("selected_version", "main")
+                        resp = requests.post(f"{API_URL}/predict?version={version}", json=payload)
+                    finally:
+                        st.session_state["is_predicting"] = False
 
                 if resp.status_code == 200:
                     result = resp.json()
@@ -412,19 +427,23 @@ with tab3:
             st.markdown(f"**Loaded {len(df_preview)} logs**")
             st.dataframe(df_preview.head(), use_container_width=True)
 
-            if st.button("🔮 Classify All Logs", use_container_width=True, type="primary", key="batch_predict"):
+            if st.button("🔮 Classify All Logs", use_container_width=True, type="primary", key="batch_predict", disabled=st.session_state["is_training"] or st.session_state["is_predicting"]):
                 if not versions:
                     st.warning("⚠️ **Training Required:** No models are available on Hugging Face Hub. Please go to the **Train Model** tab to train and register your first model!")
                     st.stop()
                     
                 uploaded_file.seek(0)
 
+                st.session_state["is_batching"] = True
                 with st.spinner(f"Classifying {len(df_preview)} logs... This might take a moment."):
-                    version = st.session_state.get("selected_version", "main")
-                    resp = requests.post(
-                        f"{API_URL}/predict/batch?version={version}",
-                        files={"file": (uploaded_file.name, uploaded_file.getvalue(), "text/csv")},
-                    )
+                    try:
+                        version = st.session_state.get("selected_version", "main")
+                        resp = requests.post(
+                            f"{API_URL}/predict/batch?version={version}",
+                            files={"file": (uploaded_file.name, uploaded_file.getvalue(), "text/csv")},
+                        )
+                    finally:
+                        st.session_state["is_batching"] = False
 
                 if resp.status_code == 200:
                     data = resp.json()

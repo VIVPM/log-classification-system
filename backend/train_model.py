@@ -13,6 +13,7 @@ import os
 import time
 import joblib
 from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
 from google import genai
 from google.genai import types
 from processor_regex import classify_with_regex
@@ -132,12 +133,17 @@ def run_training_pipeline(csv_path: str, model_save_path: str):
 
     print("Embeddings done.")
 
+    print("Splitting data into train/test sets...")
+    X_train, X_test, y_train, y_test = train_test_split(
+        embeddings, y_labels, test_size=0.2, random_state=42, stratify=y_labels
+    )
+
     print("Training Logistic Regression...")
     clf = LogisticRegression(max_iter=1000)
-    clf.fit(embeddings, y_labels)
+    clf.fit(X_train, y_train)
 
-    accuracy = clf.score(embeddings, y_labels)
-    print(f"Training accuracy: {accuracy:.4f}")
+    accuracy = clf.score(X_test, y_test)
+    print(f"Test accuracy: {accuracy:.4f}")
 
     print(f"Saving model to {model_save_path}...")
     model_dir = os.path.dirname(model_save_path)
