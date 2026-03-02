@@ -115,29 +115,7 @@ Get a Gemini key at [aistudio.google.com](https://aistudio.google.com).
 
 The training pipeline uploads the model and tags a new version (`v1.0`, `v1.1`, ...) after each run. The classifier pulls the latest version on startup.
 
-### 4. Modal (optional cloud training)
 
-The current training runs locally (Gemini API for embeddings, LR on CPU). To run in Modal:
-
-```bash
-pip install modal
-
-# Authenticate
-python -m modal setup
-
-# Create secrets for the container
-python -m modal secret create log-classifier-secrets \
-    GEMINI_API_KEY=your_key \
-    HF_TOKEN=hf_your_token \
-    HF_REPO_ID=YourUsername/log-classification-model
-```
-
-Add Modal tokens to `backend/.env`:
-
-```
-MODAL_TOKEN_ID=ak-...
-MODAL_TOKEN_SECRET=as-...
-```
 
 ## Running Locally
 
