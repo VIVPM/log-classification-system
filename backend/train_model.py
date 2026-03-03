@@ -53,9 +53,9 @@ def upload_to_hf(model_dir: str, accuracy: float):
             latest = sorted(versions)[-1]
             try:
                 major, minor = latest.removeprefix("v").split(".")
-                new_version  = f"v{major}.{int(minor) + 1}"
+                new_version  = f"v{int(major) + 1}.0"
             except ValueError:
-                new_version = f"v1.{len(versions)}"
+                new_version = f"v{len(versions) + 1}.0"
         else:
             new_version = "v1.0"
 

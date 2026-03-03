@@ -325,7 +325,7 @@ with tab1:
                 m1, m2, m3 = metrics_placeholder.columns(3)
                 m1.metric("📊 Logs Trained", s.get("num_trained_logs", "-"))
                 acc = s.get("accuracy")
-                m2.metric("📈 Training Accuracy", f"{acc:.4f}" if acc else "-")
+                m2.metric("📈 Testing Accuracy", f"{acc:.4f}" if acc else "-")
                 m3.metric("🔢 Features Used", s.get("num_features", "-"))
 
             elif status == "failed":
