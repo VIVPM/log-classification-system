@@ -132,12 +132,12 @@ with st.sidebar:
             )
             st.session_state["selected_version"] = selected_version
 
-        info = get_model_info()
-        if info:
-            st.markdown(f"**Model:** `{info.get('model_name', 'Loaded')}`")
-            st.markdown(f"**Features:** `{info.get('num_features', 'Unknown')}`")
-            if 'best_cv_score' in info and info['best_cv_score']:
-                st.markdown(f"**Score:** `{info['best_cv_score']:.4f}`")
+            info = get_model_info()
+            if info:
+                st.markdown(f"**Model:** `{info.get('model_name', 'Loaded')}`")
+                st.markdown(f"**Features:** `{info.get('num_features', 'Unknown')}`")
+                if 'best_cv_score' in info and info['best_cv_score']:
+                    st.markdown(f"**Score:** `{info['best_cv_score']:.4f}`")
     else:
         versions = []
         is_local = "localhost" in API_URL
@@ -229,7 +229,7 @@ with tab1:
 
         # ── Training Status Panel ──────────────────────────────────────────
         st.markdown("---")
-        st.markdown("#### 📊 Training Status")
+        status_header = st.empty()
 
         status_placeholder = st.empty()
         steps_placeholder = st.empty()
@@ -258,6 +258,7 @@ with tab1:
                     # Show loaded model info
                     info = get_model_info()
                     if info:
+                        status_header.markdown("#### 📊 Training Status")
                         status_placeholder.markdown(
                             f'<div class="status-completed">✅ <strong>Model Loaded from HF Hub</strong><br>Version: {selected_version}</div>',
                             unsafe_allow_html=True
@@ -280,15 +281,21 @@ with tab1:
                         m3.metric("🔢 Features", info.get("num_features", "-"))
                         return "loaded"
                 
+                if not versions:
+                    return "idle"
+                    
                 # No model loaded, show info message
+                status_header.markdown("#### 📊 Training Status")
                 status_placeholder.info("📂 Upload your CSV file and click **Start Training** to begin.")
                 return "idle"
 
             elif status == "idle":
+                status_header.markdown("#### 📊 Training Status")
                 status_placeholder.info("💤 No training has been run yet. Upload data and click **Start Training**.")
                 return "idle"
 
             elif status == "running":
+                status_header.markdown("#### 📊 Training Status")
                 status_placeholder.markdown(
                     f'<div class="status-running">🔄 <strong>Training in Progress</strong><br>{message}</div>',
                     unsafe_allow_html=True
@@ -311,6 +318,7 @@ with tab1:
                 """)
 
             elif status == "completed":
+                status_header.markdown("#### 📊 Training Status")
                 status_placeholder.markdown(
                     f'<div class="status-completed">✅ <strong>Training Complete!</strong><br>{message}</div>',
                     unsafe_allow_html=True
@@ -329,6 +337,7 @@ with tab1:
                 m3.metric("🔢 Features Used", s.get("num_features", "-"))
 
             elif status == "failed":
+                status_header.markdown("#### 📊 Training Status")
                 status_placeholder.markdown(
                     f'<div class="status-failed">❌ <strong>Training Failed</strong><br>{message}</div>',
                     unsafe_allow_html=True
