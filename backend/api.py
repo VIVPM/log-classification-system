@@ -22,7 +22,7 @@ except ImportError:
 from dotenv import load_dotenv
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"), override=False)
 HF_TOKEN = os.environ.get("HF_TOKEN", "")
-HF_REPO_ID = os.environ.get("HF_REPO_ID", "vivpm99/log-classification-model")
+HF_REPO_ID = os.environ.get("HF_REPO_ID", "")
 
 def _hf_enabled() -> bool:
     return HF_AVAILABLE and bool(HF_TOKEN) and HF_TOKEN != "your_hf_token_here"
