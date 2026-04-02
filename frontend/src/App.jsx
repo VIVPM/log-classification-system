@@ -534,7 +534,7 @@ function App() {
           <h1>AI Log Classification System</h1>
           <p className="subtitle">Classify system logs automatically using Regex, Google Embeddings, and Gemini LLM</p>
           {loading && <p className="hint">Connecting to backend (may take ~30s on cold start)...</p>}
-          {!loading && apiOk && <div className="status-pill status-ok" style={{ display: 'inline-block' }}>API Connected</div>}
+          {!loading && apiOk && <div className="status-pill status-ok" style={{ display: 'inline-block', marginTop: '12px' }}>API Connected</div>}
           {!loading && !apiOk && <div className="status-pill status-err" style={{ display: 'inline-block', cursor: 'pointer' }} onClick={connectApi}>API Offline — click to retry</div>}
         </header>
         <hr />
