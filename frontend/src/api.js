@@ -1,4 +1,6 @@
-const API_URL = '/api';
+const API_URL = import.meta.env.DEV
+  ? '/api'
+  : 'https://log-classification-system.onrender.com';
 
 export async function checkApi() {
   try {

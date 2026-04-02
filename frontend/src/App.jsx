@@ -104,7 +104,7 @@ function Sidebar({ apiOk, versions, selectedVersion, setSelectedVersion, modelIn
 }
 
 // ─── Train Model Tab ─────────────────────────────────────────────────────────
-function TrainModelTab({ apiOk, versions, selectedVersion, busy, setBusy }) {
+function TrainModelTab({ apiOk, versions, selectedVersion, busy, setBusy, onRetry }) {
   const [file, setFile] = useState(null)
   const [trainingTriggered, setTrainingTriggered] = useState(false)
   const [trainingStatus, setTrainingStatus] = useState(null)
@@ -155,7 +155,7 @@ function TrainModelTab({ apiOk, versions, selectedVersion, busy, setBusy }) {
 
   const stepIcon = (s) => s === 'done' ? '✅' : s === 'running' ? '🔄' : '⏳'
 
-  if (!apiOk) return <div className="tab-warning">Start the FastAPI backend to use training.</div>
+  if (!apiOk) return <div className="tab-warning">Connecting to backend... <button className="btn btn-secondary" onClick={onRetry}>Retry</button></div>
 
   return (
     <div className="tab-content">
@@ -268,7 +268,7 @@ function TrainModelTab({ apiOk, versions, selectedVersion, busy, setBusy }) {
 }
 
 // ─── Single Prediction Tab ───────────────────────────────────────────────────
-function SinglePredictionTab({ apiOk, versions, selectedVersion, busy, setBusy }) {
+function SinglePredictionTab({ apiOk, versions, selectedVersion, busy, setBusy, onRetry }) {
   const [logMessage, setLogMessage] = useState('')
   const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
@@ -289,7 +289,7 @@ function SinglePredictionTab({ apiOk, versions, selectedVersion, busy, setBusy }
     }
   }
 
-  if (!apiOk) return <div className="tab-warning">Start the FastAPI backend to make predictions.</div>
+  if (!apiOk) return <div className="tab-warning">Connecting to backend... <button className="btn btn-secondary" onClick={onRetry}>Retry</button></div>
 
   return (
     <div className="tab-content">
@@ -336,7 +336,7 @@ function SinglePredictionTab({ apiOk, versions, selectedVersion, busy, setBusy }
 }
 
 // ─── Batch Prediction Tab ────────────────────────────────────────────────────
-function BatchPredictionTab({ apiOk, versions, selectedVersion, busy, setBusy }) {
+function BatchPredictionTab({ apiOk, versions, selectedVersion, busy, setBusy, onRetry }) {
   const [file, setFile] = useState(null)
   const [preview, setPreview] = useState(null)
   const [predictions, setPredictions] = useState(null)
@@ -394,7 +394,7 @@ function BatchPredictionTab({ apiOk, versions, selectedVersion, busy, setBusy })
     URL.revokeObjectURL(url)
   }
 
-  if (!apiOk) return <div className="tab-warning">Start the FastAPI backend to make predictions.</div>
+  if (!apiOk) return <div className="tab-warning">Connecting to backend... <button className="btn btn-secondary" onClick={onRetry}>Retry</button></div>
 
   const distribution = predictions ? computeDistribution(predictions) : null
   const maxCount = distribution ? Math.max(...Object.values(distribution)) : 0
@@ -495,19 +495,23 @@ function App() {
   const [activeTab, setActiveTab] = useState(0)
   const [busy, setBusy] = useState(null) // 'training' | 'predicting' | 'batching' | null
 
-  useEffect(() => {
-    (async () => {
-      const { ok } = await checkApi()
-      setApiOk(ok)
-      if (ok) {
-        const v = await getModelVersions()
-        setVersions(v)
-        if (v.length > 0) setSelectedVersion(v[v.length - 1])
-        const info = await getModelInfo()
-        setModelInfo(info)
-      }
-    })()
+  const [loading, setLoading] = useState(true)
+
+  const connectApi = useCallback(async () => {
+    setLoading(true)
+    const { ok } = await checkApi()
+    setApiOk(ok)
+    if (ok) {
+      const v = await getModelVersions()
+      setVersions(v)
+      if (v.length > 0) setSelectedVersion(v[v.length - 1])
+      const info = await getModelInfo()
+      setModelInfo(info)
+    }
+    setLoading(false)
   }, [])
+
+  useEffect(() => { connectApi() }, [connectApi])
 
   const tabs = [
     // { label: 'Train Model', id: 'train' },
@@ -529,6 +533,9 @@ function App() {
         <header className="app-header">
           <h1>AI Log Classification System</h1>
           <p className="subtitle">Classify system logs automatically using Regex, Google Embeddings, and Gemini LLM</p>
+          {loading && <p className="hint">Connecting to backend (may take ~30s on cold start)...</p>}
+          {!loading && apiOk && <div className="status-pill status-ok" style={{ display: 'inline-block' }}>API Connected</div>}
+          {!loading && !apiOk && <div className="status-pill status-err" style={{ display: 'inline-block', cursor: 'pointer' }} onClick={connectApi}>API Offline — click to retry</div>}
         </header>
         <hr />
 
@@ -545,13 +552,13 @@ function App() {
         </div>
 
         {/* {activeTab === 0 && (
-          <TrainModelTab apiOk={apiOk} versions={versions} selectedVersion={selectedVersion} busy={busy} setBusy={setBusy} />
+          <TrainModelTab apiOk={apiOk} versions={versions} selectedVersion={selectedVersion} busy={busy} setBusy={setBusy} onRetry={connectApi} />
         )} */}
         {activeTab === 0 && (
-          <SinglePredictionTab apiOk={apiOk} versions={versions} selectedVersion={selectedVersion} busy={busy} setBusy={setBusy} />
+          <SinglePredictionTab apiOk={apiOk} versions={versions} selectedVersion={selectedVersion} busy={busy} setBusy={setBusy} onRetry={connectApi} />
         )}
         {activeTab === 1 && (
-          <BatchPredictionTab apiOk={apiOk} versions={versions} selectedVersion={selectedVersion} busy={busy} setBusy={setBusy} />
+          <BatchPredictionTab apiOk={apiOk} versions={versions} selectedVersion={selectedVersion} busy={busy} setBusy={setBusy} onRetry={connectApi} />
         )}
       </main>
     </div>
