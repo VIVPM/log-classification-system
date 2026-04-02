@@ -3,7 +3,7 @@
 # Steps:
 #   1. Load the labeled dataset
 #   2. Strip logs that regex already handles (they don't need a model)
-#   3. Strip LegacyCRM logs (those go to the LLM at inference)
+#   3. (removed — LegacyCRM logs are no longer special-cased)
 #   4. Get Gemini embeddings for what's left
 #   5. Train logistic regression on those embeddings
 #   6. Save model + metrics, upload to HF Hub
@@ -91,7 +91,7 @@ def run_training_pipeline(csv_path: str, model_save_path: str):
     print(f"Loading data from {csv_path}...")
     df = pd.read_csv(csv_path)
 
-    required = {'source', 'log_message', 'target_label'}
+    required = {'log_message', 'target_label'}
     if not required.issubset(df.columns):
         raise ValueError(f"CSV must contain columns: {required}")
 
@@ -103,9 +103,8 @@ def run_training_pipeline(csv_path: str, model_save_path: str):
     df_non_regex      = df[df['regex_label'].isnull()].copy()
     print(f"After regex filter: {len(df_non_regex)} logs remain")
 
-    # Strip LegacyCRM — those go to the LLM at inference time
-    df_train = df_non_regex[df_non_regex['source'] != 'LegacyCRM'].copy()
-    print(f"After LegacyCRM filter: {len(df_train)} logs for embedding")
+    df_train = df_non_regex.copy()
+    print(f"Logs for embedding: {len(df_train)}")
 
     if len(df_train) == 0:
         raise ValueError("No logs left to train on after filtering. Check your dataset.")

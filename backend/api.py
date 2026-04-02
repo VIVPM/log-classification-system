@@ -100,17 +100,16 @@ from processor_bert import model_classification
 
 app = FastAPI(title="Log Classification API", lifespan=lifespan)
 
-# Enable CORS for Streamlit frontend
+# Enable CORS for React frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 class SingleLogRequest(BaseModel):
-    source: str
     log_message: str
 
 class TrainingStatusResponse(BaseModel):
@@ -206,9 +205,8 @@ def predict_single(request: SingleLogRequest, version: str = "main"):
         raise HTTPException(status_code=400, detail=str(e))
         
     try:
-        label = classify.classify_log(request.source, request.log_message)
+        label = classify.classify_log(request.log_message)
         return {
-            "source": request.source,
             "log_message": request.log_message,
             "predicted_label": label
         }
@@ -229,11 +227,10 @@ async def predict_batch(file: UploadFile = File(...), version: str = "main"):
         contents = await file.read()
         df = pd.read_csv(io.BytesIO(contents))
         
-        if "source" not in df.columns or "log_message" not in df.columns:
-            raise HTTPException(status_code=400, detail="CSV must contain 'source' and 'log_message' columns")
+        if "log_message" not in df.columns:
+            raise HTTPException(status_code=400, detail="CSV must contain a 'log_message' column")
 
-        # Process exactly like original classify() structure logic
-        logs = list(zip(df["source"], df["log_message"]))
+        logs = df["log_message"].tolist()
         labels = classify.classify(logs)
         
         df["predicted_label"] = labels

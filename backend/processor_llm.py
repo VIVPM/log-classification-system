@@ -1,7 +1,6 @@
-# LLM-based fallback for LegacyCRM logs.
-# LegacyCRM generates unstructured business process errors that regex can't match
-# and there's not enough labeled data to train the ML model on them. Gemini
-# reads the log and picks from two specific categories.
+# LLM-based fallback classifier.
+# Used when regex has no match and the ML model's confidence is below 0.5.
+# Gemini reads the log and picks from the full set of categories.
 
 import os
 import re
@@ -16,12 +15,14 @@ client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 
 def classify_with_llm(log_msg):
     """
-    Ask Gemini to classify a LegacyCRM log into one of two categories.
+    Ask Gemini to classify a log message into one of the known categories.
     Parses the response for <category>...</category> tags — if missing or
     ambiguous, returns "Unclassified".
     """
     prompt = f'''Classify the log message into one of these categories:
-    (1) Workflow Error, (2) Deprecation Warning.
+    (1) Workflow Error, (2) Deprecation Warning, (3) HTTP Error,
+    (4) Security Alert, (5) System Notification, (6) User Action,
+    (7) Critical System Error.
     If you can't figure out a category, use "Unclassified".
     Put the category inside <category> </category> tags.
     Log message: {log_msg}'''
