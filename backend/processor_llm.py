@@ -1,6 +1,7 @@
 # LLM-based fallback classifier.
 # Used when regex has no match and the ML model's confidence is below 0.5.
-# Gemini reads the log and picks from the full set of categories.
+# Gemini picks between Workflow Error and Deprecation Warning only,
+# since all other categories have enough training data for ML to handle.
 
 import os
 import re
@@ -20,9 +21,7 @@ def classify_with_llm(log_msg):
     ambiguous, returns "Unclassified".
     """
     prompt = f'''Classify the log message into one of these categories:
-    (1) Workflow Error, (2) Deprecation Warning, (3) HTTP Error,
-    (4) Security Alert, (5) System Notification, (6) User Action,
-    (7) Critical System Error.
+    (1) Workflow Error, (2) Deprecation Warning.
     If you can't figure out a category, use "Unclassified".
     Put the category inside <category> </category> tags.
     Log message: {log_msg}'''
