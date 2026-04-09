@@ -1,6 +1,6 @@
 # Log Classification with Hybrid Framework
 
-Hybrid log classifier using three approaches based on source type: Regex for simple predictable patterns, Gemini Embeddings + Logistic Regression for complex patterns with labeled training data, and Gemini LLM for sources with insufficient labeled data (LegacyCRM). FastAPI backend processes CSV uploads and returns predicted labels. Streamlit UI for interactive classification.
+Hybrid log classifier using three approaches based on source type: Regex for simple predictable patterns, Gemini Embeddings + Logistic Regression for complex patterns with labeled training data, and Gemini LLM for sources with insufficient labeled data (LegacyCRM). FastAPI backend processes CSV uploads and returns predicted labels. React + Vite frontend for interactive classification.
 
 ## Architecture
 
@@ -21,7 +21,7 @@ graph LR
 
     subgraph Serving [3. API & UI]
         Label1 & Label2 & LLM --> API["⚙️ FastAPI<br>backend/api.py"]
-        API --> UI["🖥️ Streamlit UI<br>streamlit_app.py"]
+        API --> UI["🖥️ React UI<br>frontend/"]
     end
 
     style Input fill:#e1f5fe,stroke:#01579b
@@ -70,7 +70,7 @@ log-classification-system/
 ├── training/
 │   ├── training.ipynb       # Research notebook
 │   └── dataset/             # Labeled training data
-├── streamlit_app.py
+├── frontend/              # React + Vite UI
 ├── requirements.txt
 └── README.md
 ```
@@ -124,17 +124,17 @@ The training pipeline uploads the model and tags a new version (`v1.0`, `v1.1`, 
 cd backend
 uvicorn api:app --reload --port 8000
 
-# Terminal 2 — Streamlit UI
-streamlit run streamlit_app.py
+# Terminal 2 — React frontend
+cd frontend
+npm install
+npm run dev
 ```
 
-- UI: http://localhost:8501
-
-> **Note**: The Streamlit UI implements robust session state locking (`is_training`, `is_predicting`, `is_batching`). Initiating any active task will safely disable the other buttons to prevent race conditions or API overload.
+- UI: http://localhost:5173
 
 ## Usage
 
-Upload a CSV with two columns to the `/classify` endpoint or via the Streamlit UI:
+Upload a CSV with two columns to the `/classify` endpoint or via the React UI:
 
 | Column | Description |
 |---|---|

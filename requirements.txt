@@ -10,8 +10,6 @@ joblib
 # API & UI
 fastapi
 uvicorn
-streamlit>=1.36.0
-altair<6
 requests
 python-multipart
 
